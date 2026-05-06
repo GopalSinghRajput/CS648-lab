@@ -1,7 +1,8 @@
 import React from 'react';
-import { Button, Modal } from 'react-bootstrap';
+import { Button, Modal, Card, Table, Navbar, Nav, Container, Badge } from 'react-bootstrap';
 import EmployeeFilter from './EmployeeFilter.jsx';
 import EmployeeAdd from './EmployeeAdd.jsx';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 class EmployeeRow extends React.Component {
   constructor(props) {
@@ -16,24 +17,25 @@ class EmployeeRow extends React.Component {
 
   render() {
     const { employee, deleteEmployee } = this.props;
+    const displayStatus = employee.currentStatus === 'Active' ? 'Yes' : 'No';
     return (
       <tr>
-        <td style={{ padding: '10px 16px' }}>{employee.name}</td>
-        <td style={{ padding: '10px 16px' }}>{employee.extension}</td>
-        <td style={{ padding: '10px 16px' }}>{employee.email}</td>
-        <td style={{ padding: '10px 16px' }}>{employee.title}</td>
-        <td style={{ padding: '10px 16px' }}>{employee.dateHired}</td>
-        <td style={{ padding: '10px 16px' }}>{employee.currentStatus}</td>
-        <td style={{ padding: '10px 16px' }}>
-          <Button variant="danger" onClick={this.toggleModal}>X</Button>
+        <td><a href="#" style={{ textDecoration: 'none' }}>{employee.name}</a></td>
+        <td>{employee.extension}</td>
+        <td>{employee.email}</td>
+        <td>{employee.title}</td>
+        <td>{employee.dateHired}</td>
+        <td>{displayStatus}</td>
+        <td>
+          <Button variant="danger" size="sm" onClick={this.toggleModal}>X</Button>
           <Modal show={this.state.modalVisible} onHide={this.toggleModal}>
             <Modal.Header closeButton>
               <Modal.Title>Delete Employee?</Modal.Title>
             </Modal.Header>
             <Modal.Body>Are you sure you want to delete this employee?</Modal.Body>
             <Modal.Footer>
-              <Button variant="danger" onClick={this.toggleModal}>Cancel</Button>
-              <Button variant="success" onClick={() => { deleteEmployee(employee.id); this.toggleModal(); }}>Yes</Button>
+              <Button variant="secondary" onClick={this.toggleModal}>Cancel</Button>
+              <Button variant="danger" onClick={() => { deleteEmployee(employee._id); this.toggleModal(); }}>Delete</Button>
             </Modal.Footer>
           </Modal>
         </td>
@@ -44,24 +46,24 @@ class EmployeeRow extends React.Component {
 
 function EmployeeTable(props) {
   const employeeRows = props.employees.map(employee => (
-    <EmployeeRow key={employee.id} employee={employee} deleteEmployee={props.deleteEmployee} />
+    <EmployeeRow key={employee._id} employee={employee} deleteEmployee={props.deleteEmployee} />
   ));
 
   return (
-    <table border="1" style={{ borderCollapse: 'collapse', width: '100%' }}>
+    <Table striped bordered hover>
       <thead>
         <tr>
-          <th style={{ padding: '10px 16px' }}>Name</th>
-          <th style={{ padding: '10px 16px' }}>Extension</th>
-          <th style={{ padding: '10px 16px' }}>Email</th>
-          <th style={{ padding: '10px 16px' }}>Title</th>
-          <th style={{ padding: '10px 16px' }}>Date Hired</th>
-          <th style={{ padding: '10px 16px' }}>Status</th>
-          <th style={{ padding: '10px 16px' }}>Delete</th>
+          <th>Name</th>
+          <th>Extension</th>
+          <th>Email</th>
+          <th>Title</th>
+          <th>Date Hired</th>
+          <th>Currently Employed?</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>{employeeRows}</tbody>
-    </table>
+    </Table>
   );
 }
 
@@ -69,52 +71,80 @@ export default class EmployeeList extends React.Component {
   constructor() {
     super();
     this.state = {
-      employees: [
-        {
-          id: 1,
-          name: 'Gopal Singh S',
-          extension: 101,
-          email: 'gs1806647@gmail.com',
-          title: 'Developer',
-          dateHired: '2025-07-11',
-          currentStatus: 'Active',
-        },
-        {
-          id: 2,
-          name: 'Brett Lee',
-          extension: 102,
-          email: 'brett.lee@example.com',
-          title: 'Manager',
-          dateHired: '2023-08-15',
-          currentStatus: 'Active',
-        },
-      ],
+      employees: [],
+      filter: 'All',
     };
 
     this.createEmployee = this.createEmployee.bind(this);
     this.deleteEmployee = this.deleteEmployee.bind(this);
+    this.handleFilterChange = this.handleFilterChange.bind(this);
   }
 
-  deleteEmployee(id) {
-    this.setState({ employees: this.state.employees.filter(e => e.id !== id) });
+  componentDidMount() {
+    this.loadData();
   }
 
-  createEmployee(employee) {
-    employee.id = this.state.employees.length + 1;
-    const newEmployeeList = this.state.employees.slice();
-    newEmployeeList.push(employee);
-    this.setState({ employees: newEmployeeList });
+  async loadData() {
+    const response = await fetch('/api/employees');
+    const employees = await response.json();
+    this.setState({ employees });
+  }
+
+  async deleteEmployee(id) {
+    await fetch(`/api/employees/${id}`, {
+      method: 'DELETE',
+    });
+    this.loadData();
+  }
+
+  async createEmployee(employee) {
+    await fetch('/api/employees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(employee),
+    });
+    this.loadData();
+  }
+
+  handleFilterChange(filter) {
+    this.setState({ filter });
   }
 
   render() {
+    const filteredEmployees = this.state.filter === 'All' 
+      ? this.state.employees 
+      : this.state.employees.filter(emp => emp.currentStatus === this.state.filter);
+
     return (
       <>
-        <h1>Employee Management Application</h1>
-        <EmployeeFilter />
-        <hr />
-        <EmployeeTable employees={this.state.employees} deleteEmployee={this.deleteEmployee} />
-        <hr />
-        <EmployeeAdd createEmployee={this.createEmployee} />
+        <Navbar bg="dark" variant="dark" expand="lg">
+          <Container fluid>
+            <Navbar.Brand href="#">Employee Management Application</Navbar.Brand>
+            <Nav className="me-auto">
+              <Nav.Link href="#" active>All Employees</Nav.Link>
+              <Nav.Link href="#">Reports</Nav.Link>
+            </Nav>
+          </Container>
+        </Navbar>
+
+        <Container fluid className="mt-4">
+          <div className="d-flex justify-content-end mb-3">
+            <EmployeeAdd createEmployee={this.createEmployee} />
+          </div>
+          
+          <Card className="mb-3">
+            <Card.Body>
+              <EmployeeFilter filter={this.state.filter} onFilterChange={this.handleFilterChange} />
+            </Card.Body>
+          </Card>
+
+          <Card>
+            <Card.Body>
+              <h5>All Employees <Badge bg="secondary">{filteredEmployees.length}</Badge></h5>
+              <EmployeeTable employees={filteredEmployees} deleteEmployee={this.deleteEmployee} />
+            </Card.Body>
+          </Card>
+        </Container>
       </>
     );
   }
